@@ -38,9 +38,14 @@ export const AVATARS: Avatar[] = [
   { id: "star", label: "ستاره" },
 ];
 
+/** یک آواتار تصادفی از ست. فقط در event handler صدا زده می‌شود، نه هنگام رندر. */
+export function randomAvatarId(): string {
+  return AVATARS[Math.floor(Math.random() * AVATARS.length)].id;
+}
+
 /**
- * آواتار انتخابی کاربر. `null` یعنی چیزی انتخاب نکرده و آواتار پیش‌فرض
- * (حرف اول نامش روی زمینهٔ رنگی) نمایش داده می‌شود.
+ * آواتار انتخابی کاربر. هنگام ورود به مرحلهٔ آخر یکی به‌صورت تصادفی انتخاب
+ * می‌شود، پس در عمل `null` نمی‌ماند؛ کاربر می‌تواند عوضش کند.
  */
 export type AvatarChoice =
   | { kind: "preset"; id: string }

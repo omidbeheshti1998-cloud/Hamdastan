@@ -20,13 +20,17 @@ STEP 1 — شماره موبایل
         │                       STEP 3 — علایق
         │                              │
         │                              ▼
-        │                       کوییز ترجیحات ──▶ حساب ساخته شد
+        │                       کوییز ترجیحات
+        │                              │
+        │                              ▼
+        │                       مرحلهٔ آخر — پروفایل ──▶ حساب ساخته شد
         │
         └── حساب وجود دارد ───▶ STEP 2B — کد تأیید (OTP) ──▶ ورود موفق
 ```
 
-مرحله‌های علایق و ترجیحات فقط در مسیر ثبت‌نام هستند، نه در ورود. جزئیاتشان در
-[`docs/ONBOARDING.md`](./ONBOARDING.md) و [`docs/PREFERENCES.md`](./PREFERENCES.md).
+مرحله‌های علایق، ترجیحات و پروفایل فقط در مسیر ثبت‌نام هستند، نه در ورود.
+جزئیاتشان در [`docs/ONBOARDING.md`](./ONBOARDING.md)،
+[`docs/PREFERENCES.md`](./PREFERENCES.md) و [`docs/PROFILE.md`](./PROFILE.md).
 
 | مرحله | فایل |
 |---|---|
@@ -37,6 +41,7 @@ STEP 1 — شماره موبایل
 | STEP 2B — کد تأیید | `app/_login/_steps/otp-step.tsx` |
 | STEP 3 — علایق | `app/_login/_steps/interests-step.tsx` |
 | کوییز ترجیحات | `app/_login/_steps/preferences-step.tsx` |
+| مرحلهٔ آخر — پروفایل | `app/_login/_steps/identity-step.tsx` |
 | صفحهٔ پایان | `app/_login/_steps/done-step.tsx` |
 | ورودی ۶ خانه‌ای OTP | `app/_login/_components/otp-input.tsx` |
 | Button / TextField / Spinner | `app/_login/_components/ui.tsx` |
@@ -127,6 +132,8 @@ STEP 1 — شماره موبایل
 | `register` | `POST /api/auth/register` |
 | `saveInterests` | `POST /api/onboarding/interests` |
 | `savePreferences` | `POST /api/onboarding/preferences` |
+| `checkUsername` | `GET /api/profile/username-available` |
+| `saveProfile` | `POST /api/profile` |
 
 هنگام پیاده‌سازی بک‌اند این‌ها را در نظر بگیر:
 

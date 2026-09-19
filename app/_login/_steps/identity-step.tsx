@@ -28,15 +28,12 @@ export function IdentityStep({
   onSubmit,
   loading,
   error,
-  nameSeed,
 }: {
   identity: ProfileIdentity;
   onChange: (identity: ProfileIdentity) => void;
   onSubmit: () => void;
   loading: boolean;
   error?: string;
-  /** فقط برای ساختن آواتار پیش‌فرض استفاده می‌شود. */
-  nameSeed: string;
 }) {
   const { username, avatar, bio } = identity;
 
@@ -221,7 +218,7 @@ export function IdentityStep({
         ) : (
           <>
             <div className="mt-4 flex flex-col items-center">
-              <CurrentAvatar avatar={avatar} seed={nameSeed || username} />
+              <CurrentAvatar avatar={avatar} />
               <div className="mt-4 flex gap-2">
                 <SecondaryAction
                   onClick={() => setPicker(picker === "avatars" ? "none" : "avatars")}
@@ -328,7 +325,7 @@ export function IdentityStep({
   );
 }
 
-function CurrentAvatar({ avatar, seed }: { avatar: AvatarChoice; seed: string }) {
+function CurrentAvatar({ avatar }: { avatar: AvatarChoice }) {
   if (avatar?.kind === "photo") {
     return (
       // آدرس blob است؛ next/image اینجا کاربرد ندارد.
@@ -342,8 +339,7 @@ function CurrentAvatar({ avatar, seed }: { avatar: AvatarChoice; seed: string })
   }
   return (
     <AvatarArt
-      id={avatar?.kind === "preset" ? avatar.id : null}
-      seed={seed}
+      id={avatar?.kind === "preset" ? avatar.id : AVATARS[0].id}
       className="size-24 rounded-full"
     />
   );

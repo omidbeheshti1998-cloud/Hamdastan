@@ -12,7 +12,7 @@ import {
 import { isValidMobile, normalizeMobile } from "@/lib/auth/mobile";
 import type { InterestSelection } from "@/lib/interests";
 import type { PreferenceAnswers } from "@/lib/preferences";
-import type { ProfileIdentity } from "@/lib/profile";
+import { randomAvatarId, type ProfileIdentity } from "@/lib/profile";
 import { DoneStep } from "./_steps/done-step";
 import { InterestsStep } from "./_steps/interests-step";
 import { MobileStep } from "./_steps/mobile-step";
@@ -105,12 +105,27 @@ export function LoginFlow() {
     setError(undefined);
     try {
       await savePreferences(mobile, preferences);
-      setStep("identity");
+      goToIdentity();
     } catch {
       setError(NETWORK_ERROR);
     } finally {
       setLoading(false);
     }
+  }
+
+  /**
+   * ورود به مرحلهٔ آخر. اگر هنوز آواتاری انتخاب نشده، یکی تصادفی برایش
+   * برمی‌داریم تا پروفایل از همان اول خالی نباشد.
+   * انتخاب تصادفی عمداً اینجا (در event handler) انجام می‌شود و نه هنگام
+   * مقداردهی اولیهٔ state، وگرنه سرور و کلاینت دو مقدار متفاوت رندر می‌کردند.
+   */
+  function goToIdentity() {
+    setIdentity((current) =>
+      current.avatar
+        ? current
+        : { ...current, avatar: { kind: "preset", id: randomAvatarId() } },
+    );
+    setStep("identity");
   }
 
   async function handleIdentitySubmit() {
@@ -174,7 +189,7 @@ export function LoginFlow() {
           answers={preferences}
           onChange={setPreferences}
           onFinish={handlePreferencesFinish}
-          onSkip={() => setStep("identity")}
+          onSkip={goToIdentity}
           loading={loading}
           error={error}
         />
@@ -185,7 +200,6 @@ export function LoginFlow() {
           onSubmit={handleIdentitySubmit}
           loading={loading}
           error={error}
-          nameSeed={profile.firstName}
         />
       ) : step === "onboarded" ? (
         <DoneStep

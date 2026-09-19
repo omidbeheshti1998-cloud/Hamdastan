@@ -14,8 +14,8 @@ const kalameh = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "همدستان",
-  description: "ورود به حساب کاربری همدستان",
+  title: "هم‌داستان",
+  description: "ورود به حساب کاربری هم‌داستان",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

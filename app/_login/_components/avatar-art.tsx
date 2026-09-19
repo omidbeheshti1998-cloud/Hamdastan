@@ -216,59 +216,20 @@ const ART: Record<string, Art> = {
   },
 };
 
-/** پالت آواتار پیش‌فرض — به‌صورت قطعی از روی نام انتخاب می‌شود، نه تصادفی. */
-const DEFAULT_COLORS = ["#4F6BED", "#2E9E77", "#D9631F", "#8E5AD6", "#D6457A", "#2E8BB4"];
-
-function pickColor(seed: string): string {
-  let sum = 0;
-  for (const char of seed) sum += char.codePointAt(0) ?? 0;
-  return DEFAULT_COLORS[sum % DEFAULT_COLORS.length];
-}
-
-/** آواتار پیش‌فرض: حرف اول نام روی زمینهٔ رنگی. وقتی کاربر چیزی انتخاب نکرده. */
-function DefaultAvatar({ seed }: { seed: string }) {
-  const initial = [...seed.trim()][0] ?? "؟";
-  return (
-    <>
-      <circle cx="32" cy="32" r="32" fill={pickColor(seed || "?")} />
-      <text
-        x="32"
-        y="32"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill="#FFFFFF"
-        fontSize="28"
-        fontWeight="600"
-        fontFamily="inherit"
-      >
-        {initial}
-      </text>
-    </>
-  );
-}
-
 export function AvatarArt({
   id,
-  seed = "",
   className = "",
 }: {
-  /** شناسهٔ آواتار آماده، یا `null` برای آواتار پیش‌فرض. */
-  id: string | null;
-  seed?: string;
+  /** شناسهٔ آواتار از `AVATARS`. */
+  id: string;
   className?: string;
 }) {
-  const art = id ? ART[id] : undefined;
+  const art = ART[id];
 
   return (
     <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
-      {art ? (
-        <>
-          <circle cx="32" cy="32" r="32" fill={art.bg} />
-          {art.body}
-        </>
-      ) : (
-        <DefaultAvatar seed={seed} />
-      )}
+      <circle cx="32" cy="32" r="32" fill={art?.bg ?? "#E7E7EA"} />
+      {art?.body}
     </svg>
   );
 }
