@@ -12,9 +12,26 @@ import { requireEnv } from "@/lib/server/env";
  * از Prisma 7 اتصال از طریق driver adapter برقرار می‌شود، نه از `url` در schema.
  */
 
+/**
+ * سقف زمان برقراری اتصال.
+ *
+ * پیش‌فرض `node-postgres` بی‌نهایت است: اگر هاست دیتابیس بسته‌ها را drop کند —
+ * مثلاً وقتی خروجی شبکهٔ سرور به پورت ۵۴۳۲ باز نیست — اتصال نه برقرار می‌شود و
+ * نه خطا می‌دهد، و درخواست تا ابد معلق می‌ماند. کاربر هم نه خطایی می‌بیند و نه
+ * مرحلهٔ بعد را. با این سقف، همان حالت به یک خطای صریح تبدیل می‌شود.
+ */
+const CONNECT_TIMEOUT_MS = 10_000;
+
+/** سقف زمان یک کوئری، برای وقتی اتصال برقرار می‌شود ولی پاسخی نمی‌آید. */
+const QUERY_TIMEOUT_MS = 15_000;
+
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: requireEnv("DATABASE_URL") }),
+    adapter: new PrismaPg({
+      connectionString: requireEnv("DATABASE_URL"),
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+      query_timeout: QUERY_TIMEOUT_MS,
+    }),
     log: process.env.PRISMA_LOG_QUERIES === "true" ? ["query"] : [],
   });
 

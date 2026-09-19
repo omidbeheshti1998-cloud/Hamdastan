@@ -271,6 +271,12 @@
   position: relative;
   isolation: isolate;
 
+  /* لکه‌ها عمداً از لبه بیرون می‌زنند (inset منفی + scale) تا هنگام جابه‌جایی،
+     گوشه‌ها خالی نشوند. بدون بریدن، همین باعث اسکرول افقی کل صفحه می‌شد.
+     `clip` و نه `hidden`: `hidden` این عنصر را scroll container می‌کند و
+     CTA های `sticky bottom-0` در مراحل علاقه‌مندی و هویت را می‌شکند. */
+  overflow: clip;
+
   &::before {
     content: "";
     position: absolute;

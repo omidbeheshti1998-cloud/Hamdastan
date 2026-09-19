@@ -29,13 +29,30 @@ export class UsernameTakenError extends Error {
 }
 
 /**
- * قطع شبکه و پاسخ ۵xx هر دو یک چیزند از دید کاربر: «نشد، دوباره تلاش کن».
- * خطای ۴xx یعنی باگ سمت ما و نباید در سکوت رد شود.
+ * سقف انتظار برای هر درخواست.
+ *
+ * بدون این، اگر سرور نه پاسخ بدهد و نه اتصال را ببندد — مثلاً وقتی بک‌اند به
+ * دیتابیس نمی‌رسد و روی TCP معطل می‌ماند — `fetch` هرگز settle نمی‌شود و کاربر
+ * یک spinner ابدی می‌بیند: نه خطایی، نه مرحلهٔ بعدی. انتظارِ بی‌پایان بدترین
+ * حالت است؛ پیام خطا دست‌کم «دوباره تلاش کن» را ممکن می‌کند.
  */
-async function request(path: string, init?: RequestInit): Promise<Response> {
+const REQUEST_TIMEOUT_MS = 20_000;
+
+/** آپلود عکس روی اینترنت کند طبیعتاً طولانی‌تر است. */
+const UPLOAD_TIMEOUT_MS = 60_000;
+
+/**
+ * قطع شبکه، پاسخ ۵xx و انتظار بیش از حد، هر سه از دید کاربر یک چیزند:
+ * «نشد، دوباره تلاش کن». خطای ۴xx یعنی باگ سمت ما و نباید در سکوت رد شود.
+ */
+async function request(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(path, init);
+    response = await fetch(path, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   } catch {
     throw new AuthNetworkError();
   }
@@ -134,7 +151,11 @@ export async function saveProfile(identity: ProfileIdentity): Promise<void> {
     form.set("avatarPresetId", identity.avatar.id);
   }
 
-  const response = await request("/api/profile", { method: "POST", body: form });
+  const response = await request(
+    "/api/profile",
+    { method: "POST", body: form },
+    UPLOAD_TIMEOUT_MS,
+  );
   if (response.status === 409) throw new UsernameTakenError();
   expectNoContent(response);
 }
