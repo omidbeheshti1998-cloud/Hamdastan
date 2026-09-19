@@ -2,6 +2,7 @@
 
 import { addTransitionType, startTransition, ViewTransition, useState } from "react";
 import {
+  authErrorMessage,
   checkMobile,
   register,
   saveInterests,
@@ -32,8 +33,6 @@ type Step =
   | "otp"
   | "onboarded"
   | "loggedIn";
-
-const NETWORK_ERROR = "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.";
 
 /**
  * ترتیب مراحل فقط برای تشخیص جهت حرکت است، نه برای کنترل فلو.
@@ -99,8 +98,8 @@ export function LoginFlow() {
       } else {
         go("profile");
       }
-    } catch {
-      setError(NETWORK_ERROR);
+    } catch (cause) {
+      setError(authErrorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -122,8 +121,8 @@ export function LoginFlow() {
       await sendOtp(mobile);
       setOtpPurpose("signup");
       go("otp");
-    } catch {
-      setError(NETWORK_ERROR);
+    } catch (cause) {
+      setError(authErrorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -157,8 +156,8 @@ export function LoginFlow() {
     try {
       await saveInterests(interests);
       go("preferences");
-    } catch {
-      setError(NETWORK_ERROR);
+    } catch (cause) {
+      setError(authErrorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -171,8 +170,8 @@ export function LoginFlow() {
     try {
       await savePreferences(preferences);
       goToIdentity();
-    } catch {
-      setError(NETWORK_ERROR);
+    } catch (cause) {
+      setError(authErrorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -205,7 +204,7 @@ export function LoginFlow() {
       setError(
         cause instanceof UsernameTakenError
           ? "این نام کاربری قبلاً گرفته شده. یکی دیگر انتخاب کن."
-          : "ذخیره نشد. دوباره امتحان کن.",
+          : authErrorMessage(cause),
       );
     } finally {
       setLoading(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sendOtp } from "@/lib/auth/client";
+import { authErrorMessage, sendOtp } from "@/lib/auth/client";
 import { maskMobile } from "@/lib/auth/mobile";
 import { OTP_LENGTH, OtpInput } from "../_components/otp-input";
 import { Spinner, StepHeader } from "../_components/ui";
@@ -9,13 +9,30 @@ import { Spinner, StepHeader } from "../_components/ui";
 /** کد تأیید ۲ دقیقه اعتبار دارد. */
 const OTP_TTL_MS = 2 * 60 * 1000;
 
-type OtpError = "invalid" | "expired" | "network";
+/**
+ * `failed` پیامش را با خودش می‌آورد، چون دلیلِ شکست یکی نیست: ۵۰۰ سرور، نشست
+ * منقضی و قطعی شبکه سه چیز متفاوت‌اند و سه اقدام متفاوت می‌خواهند. پیش‌تر هر
+ * سه یک پیام ثابتِ «ارتباط با سرور برقرار نشد» می‌گرفتند و همین باعث شد یک
+ * متغیر محیطیِ ست‌نشده در production، شبیه قطعی اینترنت دیده شود.
+ */
+type OtpError =
+  | { kind: "invalid" }
+  | { kind: "expired" }
+  | { kind: "failed"; message: string };
 
-const ERROR_MESSAGES: Record<OtpError, string> = {
-  invalid: "کد واردشده صحیح نیست.",
-  expired: "اعتبار این کد تمام شده است. کد جدید دریافت کنید.",
-  network: "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
-};
+const INVALID_CODE: OtpError = { kind: "invalid" };
+const EXPIRED_CODE: OtpError = { kind: "expired" };
+
+function errorMessage(error: OtpError): string {
+  switch (error.kind) {
+    case "invalid":
+      return "کد واردشده صحیح نیست.";
+    case "expired":
+      return "اعتبار این کد تمام شده است. کد جدید دریافت کنید.";
+    case "failed":
+      return error.message;
+  }
+}
 
 function formatCountdown(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -64,7 +81,7 @@ export function OtpStep({
 
   // انقضا بر هر خطای قبلی مقدم است: اگر کد وسط نمایشِ «کد اشتباه» منقضی شود،
   // آن پیام دیگر درست نیست و تنها اقدام معنادار، گرفتن کد جدید است.
-  const shownError = expired ? "expired" : error;
+  const shownError = expired ? EXPIRED_CODE : error;
 
   // جلوگیری از Double Submit وقتی auto-verify و کلیک هم‌زمان می‌شوند.
   const inFlight = useRef(false);
@@ -72,7 +89,7 @@ export function OtpStep({
   async function verify(value: string) {
     if (inFlight.current) return;
     if (Date.now() >= expiresAt) {
-      setError("expired");
+      setError(EXPIRED_CODE);
       return;
     }
 
@@ -81,9 +98,9 @@ export function OtpStep({
     setError(null);
     try {
       const { ok } = await onVerify(value);
-      if (!ok) setError("invalid");
-    } catch {
-      setError("network");
+      if (!ok) setError(INVALID_CODE);
+    } catch (cause) {
+      setError({ kind: "failed", message: authErrorMessage(cause) });
     } finally {
       inFlight.current = false;
       setVerifying(false);
@@ -110,8 +127,8 @@ export function OtpStep({
       setExpiresAt(Date.now() + OTP_TTL_MS);
       setNow(Date.now());
       setResentNotice(true);
-    } catch {
-      setError("network");
+    } catch (cause) {
+      setError({ kind: "failed", message: authErrorMessage(cause) });
     } finally {
       inFlight.current = false;
       setResending(false);
@@ -145,7 +162,7 @@ export function OtpStep({
         value={code}
         onChange={handleCodeChange}
         disabled={busy}
-        invalid={shownError === "invalid"}
+        invalid={shownError?.kind === "invalid"}
       />
 
       <div className="mt-5 min-h-16 text-sm">
@@ -159,7 +176,7 @@ export function OtpStep({
             role="alert"
             className={expired ? "text-zinc-500" : "text-red-600"}
           >
-            {ERROR_MESSAGES[shownError]}
+            {errorMessage(shownError)}
           </p>
         ) : resentNotice ? (
           <p role="status" className="text-emerald-600">
@@ -183,7 +200,7 @@ export function OtpStep({
               {resending ? <Spinner /> : null}
               ارسال مجدد کد
             </button>
-          ) : error === "network" ? (
+          ) : error?.kind === "failed" ? (
             <button
               type="button"
               onClick={() => void verify(code)}
