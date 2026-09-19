@@ -22,6 +22,32 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: ReturnType<typeof createPrismaClient>;
 };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+let client: ReturnType<typeof createPrismaClient> | undefined;
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+function getClient() {
+  if (client) return client;
+  client = globalForPrisma.prisma ?? createPrismaClient();
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+  return client;
+}
+
+/**
+ * ساخت کلاینت عمداً تا اولین استفادهٔ واقعی به تعویق می‌افتد.
+ *
+ * `next build` در مرحلهٔ «collecting page data» هر route را import می‌کند، و
+ * داخل ایمیج داکر هیچ `DATABASE_URL` ای وجود ندارد. با ساختِ آنی در سطح
+ * ماژول، همین import کافی بود تا `requireEnv` پرتاب کند و کل build بشکند —
+ * در حالی که build اصلاً به دیتابیس کار ندارد.
+ *
+ * خطای صریحِ نبودِ متغیر از بین نمی‌رود؛ فقط به زمان اولین کوئری منتقل می‌شود،
+ * یعنی همان‌جایی که واقعاً معنا دارد.
+ */
+export const prisma = new Proxy({} as ReturnType<typeof createPrismaClient>, {
+  get(_target, property) {
+    const instance = getClient();
+    const value = Reflect.get(instance, property);
+    // متدهای خودِ کلاینت (مثل `$transaction`) باید `this` درست داشته باشند،
+    // وگرنه روی Proxy صدا زده می‌شوند.
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
+});
