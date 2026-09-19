@@ -35,7 +35,6 @@ export function ProfileStep({
       noValidate
     >
       <StepHeader
-        progress="مرحله ۲ از ۳"
         title="خوش اومدی 👋"
         description="برای ساخت حساب، فقط نامت رو به ما بگو."
       />
@@ -84,7 +83,7 @@ export function ProfileStep({
         type="button"
         onClick={onBack}
         disabled={loading}
-        className="mx-auto mt-4 block h-11 px-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-900 disabled:opacity-40 dark:hover:text-zinc-100"
+        className="mx-auto mt-4 block h-11 px-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-900 disabled:opacity-40 dark:hover:text-zinc-100 active:scale-95 motion-reduce:active:scale-100"
       >
         بازگشت
       </button>

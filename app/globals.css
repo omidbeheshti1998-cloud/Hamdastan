@@ -3,19 +3,53 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* رنگ تعامل — گرم و کم‌مصرف.
+     فقط در لحظهٔ تعامل ظاهر می‌شود (فوکوس، انتخاب)؛ دکمهٔ اصلی مشکی می‌ماند
+     تا تنها عنصر پُررنگ صفحه باشد و رقیب بصری نداشته باشد. */
+  --accent: oklch(64.6% 0.222 41.116);
+  --accent-soft: oklch(98% 0.016 73.684);
+
+  /* روی زمینهٔ تیره سایه دیده نمی‌شود؛ عمق با یک هایلایت نازک روی لبهٔ بالایی
+     ساخته می‌شود — همان کاری که نور محیط در دنیای واقعی می‌کند. */
+  --surface-shadow: var(--shadow-md);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* روی زمینهٔ تیره همان نارنجی کم‌جان می‌شود؛ یک پله روشن‌تر گرفته می‌شود. */
+    --accent: oklch(70.5% 0.213 47.604);
+    --accent-soft: oklch(26.6% 0.079 36.259);
+    --surface-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
   }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-kalameh);
+}
+
+@theme {
+  /* منحنی پیش‌فرض پروژه: شروع سریع، توقف نرم.
+     `ease-out` تیلویند (0,0,0.2,1) انتهای کندی دارد که حرکت را تنبل نشان می‌دهد. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* این دو، پیش‌فرض *همهٔ* کلاس‌های `transition` در اپ را عوض می‌کنند —
+     بدون اینکه لازم باشد جایی در markup دست بخورد. */
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* سایه‌های لایه‌ای با آلفای پایین: چند سایهٔ ضعیف به‌جای یک سایهٔ قوی،
+     تا عمق حس شود ولی لبه‌ها کثیف نشوند. */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 6px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.04), 0 8px 20px rgb(0 0 0 / 0.06);
 }
 
 @layer base {
@@ -41,6 +75,10 @@
   }
 }
 
+@utility surface {
+  box-shadow: var(--surface-shadow);
+}
+
 @keyframes step-in {
   from {
     opacity: 0;
@@ -54,9 +92,248 @@
 
 /* ترنزیشن کوتاه بین مراحل فلو */
 @utility animate-step-in {
-  animation: step-in 0.24s ease-out both;
+  animation: step-in 0.24s var(--ease-out-quart) both;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+  }
+}
+
+/* ─── ترنزیشن جهت‌دار بین مراحل ───────────────────────────────────────────
+   «جلو» در راست‌به‌چپ یعنی حرکت به سمت راست — عکسِ چیزی که نمونه‌های لاتین
+   می‌نویسند. به‌جای دو مجموعه keyframe جدا، علامت آفست با `--slide-dir`
+   وارونه می‌شود. */
+:root {
+  --slide-dir: -1;
+}
+:root:dir(ltr) {
+  --slide-dir: 1;
+}
+
+@keyframes slide-x {
+  from {
+    translate: calc(var(--slide-offset) * var(--slide-dir));
+  }
+  to {
+    translate: 0;
+  }
+}
+
+@keyframes fade-blur {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* زمان‌بندی نامتقارن است: قدیمی سریع می‌رود تا توجه نگیرد، جدید آرام‌تر
+   می‌آید و حرکتش از محوشدنش طولانی‌تر است تا ادامه‌دار حس شود. */
+::view-transition-old(.step-forward),
+::view-transition-old(.step-back) {
+  animation:
+    140ms ease-in both fade-blur reverse,
+    360ms var(--ease-out-quart) both slide-x reverse;
+}
+
+::view-transition-new(.step-forward),
+::view-transition-new(.step-back) {
+  animation:
+    200ms ease-out 140ms both fade-blur,
+    360ms var(--ease-out-quart) both slide-x;
+}
+
+::view-transition-old(.step-forward) {
+  --slide-offset: -56px;
+}
+::view-transition-new(.step-forward) {
+  --slide-offset: 56px;
+}
+::view-transition-old(.step-back) {
+  --slide-offset: 56px;
+}
+::view-transition-new(.step-back) {
+  --slide-offset: -56px;
+}
+
+/* بدون این، پوشش ترنزیشن کلیک‌های حین انیمیشن را می‌بلعد. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* ─── زنده بودن محیط ─────────────────────────────────────────────────────
+   حرکتی که کاربر آگاهانه نمی‌بیند ولی نبودش را حس می‌کند. */
+
+/* پلک زدن آواتار انتخاب‌شده.
+   چرخه ۲.۴ ثانیه است و دو پلک دارد: یکی تقریباً بلافاصله (۵٪ ≈ ۱۲۰ms) که
+   نقش تأیید انتخاب را بازی می‌کند، و یکی در میانهٔ چرخه که آواتار را زنده
+   نگه می‌دارد. خودِ بستن چشم ~۱۰۰ms است؛ کندتر از این، خواب‌آلود به نظر می‌رسد. */
+@keyframes blink {
+  0%,
+  9%,
+  50%,
+  59%,
+  100% {
+    transform: scaleY(1);
+  }
+  5%,
+  55% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* سه آواتار چشم ندارند (پروانه، ماه، گل)، پس زنده بودنشان از حرکت خودِ
+   شکل می‌آید نه از پلک: بال زدن، شناور بودن، تاب خوردن. */
+
+/* بال‌ها به سمت بدن کوتاه می‌شوند — همان چیزی که چشم از بال زدن می‌بیند. */
+@keyframes wing-flap {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.52);
+  }
+}
+
+@keyframes moon-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-1.5px) rotate(-7deg);
+  }
+}
+
+@keyframes flower-sway {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+@layer components {
+  /* فقط آواتار انتخاب‌شده زنده است. اگر همهٔ آواتارهای گرید هم‌زمان حرکت
+     کنند، صفحه شلوغ و مکانیکی می‌شود و انتخاب هم دیگر متمایز نیست.
+     تأخیر عمداً ندارند: با تأخیر، اولین حرکت بعد از انتخاب دیر می‌رسد و
+     کاربر ارتباطش را با کلیک خودش از دست می‌دهد. */
+  .avatar-alive .avatar-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: blink 2.4s ease-in-out infinite;
+  }
+
+  .avatar-alive .avatar-wing-left,
+  .avatar-alive .avatar-wing-right {
+    transform-box: fill-box;
+    animation: wing-flap 0.8s ease-in-out infinite;
+  }
+  /* لولای هر بال، لبه‌ای است که به بدن پروانه می‌چسبد. */
+  .avatar-alive .avatar-wing-left {
+    transform-origin: 100% 50%;
+  }
+  .avatar-alive .avatar-wing-right {
+    transform-origin: 0% 50%;
+  }
+
+  .avatar-alive .avatar-float {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: moon-float 3.2s ease-in-out infinite;
+  }
+
+  .avatar-alive .avatar-sway {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: flower-sway 2.8s ease-in-out infinite;
+  }
+}
+
+/* پس‌زمینهٔ محیطی: دو لکهٔ نور که خیلی آرام جابه‌جا می‌شوند.
+   شدت عمداً زیر ۵٪ است — باید حس شود، نه دیده. */
+@keyframes ambient-drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(3%, -4%, 0) scale(1.12);
+  }
+}
+
+@utility ambient {
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(40% 35% at 25% 20%, var(--accent) 0%, transparent 70%),
+      radial-gradient(35% 30% at 75% 80%, var(--accent) 0%, transparent 70%);
+    opacity: 0.045;
+    animation: ambient-drift 24s ease-in-out infinite;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &::before {
+      opacity: 0.07;
+    }
+  }
+}
+
+/* تعویض آواتار: قدیمی کوچک می‌شود و می‌رود، جدید کمی بزرگ‌تر می‌آید و
+   سر جایش می‌نشیند. گرید و آواتار بزرگ هم‌زمان روی صفحه‌اند، پس اینجا
+   morphِ shared-element ممکن نیست — دو عنصر با یک `view-transition-name`
+   ترنزیشن را می‌شکنند. */
+@keyframes avatar-out {
+  to {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes avatar-in {
+  from {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+::view-transition-old(.avatar-swap) {
+  animation: avatar-out 160ms var(--ease-out-quart) both;
+}
+::view-transition-new(.avatar-swap) {
+  animation: avatar-in 260ms var(--ease-out-quart) both;
+}
+
+/* حرکت بی‌پایان در پس‌زمینه بیشترین آزار را برای حساسیت به حرکت دارد. */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-alive .avatar-eye,
+  .avatar-alive .avatar-wing-left,
+  .avatar-alive .avatar-wing-right,
+  .avatar-alive .avatar-float,
+  .avatar-alive .avatar-sway,
+  .ambient::before {
+    animation: none !important;
+  }
+}
+
+/* لغزش افقی رایج‌ترین محرک حساسیت به حرکت است؛ اینجا کاملاً خاموش می‌شود. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

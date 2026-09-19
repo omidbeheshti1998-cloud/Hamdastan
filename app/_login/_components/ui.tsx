@@ -1,20 +1,22 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Spinner } from "./icons";
+
+// اسپینر از `icons` می‌آید؛ اینجا دوباره صادر می‌شود چون بیشتر مصرف‌کننده‌ها
+// آن را کنار بقیهٔ عناصر فرم از همین ماژول می‌گیرند.
+export { Spinner };
 
 export function StepHeader({
-  progress,
   title,
   description,
 }: {
-  progress?: string;
   title: string;
   description: ReactNode;
 }) {
   return (
     <header className="mb-8">
-      {progress ? (
-        <p className="mb-3 text-xs font-medium text-zinc-400">{progress}</p>
-      ) : null}
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+      {/* بدون `tracking-tight`: فشرده‌کردن حروف از تایپوگرافی لاتین می‌آید و
+          روی خط فارسی که حروفش به هم متصل‌اند، اتصال‌ها را خراب می‌کند. */}
+      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
         {title}
       </h1>
       <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
@@ -50,7 +52,7 @@ export function TextField({
         className={`h-14 w-full rounded-xl border bg-white px-4 text-base text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:ring-4 disabled:opacity-60 dark:bg-zinc-900 dark:text-zinc-50 ${
           error
             ? "border-red-400 focus:border-red-500 focus:ring-red-500/15"
-            : "border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10 dark:border-zinc-800 dark:focus:border-zinc-300 dark:focus:ring-zinc-100/10"
+            : "border-zinc-200 focus:border-accent focus:ring-accent/14 dark:border-zinc-800"
         } ${className}`}
       />
       {error ? (
@@ -80,7 +82,8 @@ export function PrimaryButton({
       // جلوگیری از Double Submit: در حالت Loading دکمه غیرفعال است.
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-base font-semibold text-white transition enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:enabled:hover:bg-white ${className}`}
+      // `active:scale` فقط روی دکمهٔ فعال: فشرده‌شدن دکمهٔ غیرفعال پیام اشتباه می‌دهد.
+      className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-base font-semibold text-white shadow-xs transition enabled:hover:bg-zinc-800 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none motion-reduce:enabled:active:scale-100 dark:bg-zinc-50 dark:text-zinc-900 dark:shadow-none dark:enabled:hover:bg-white ${className}`}
     >
       {loading ? (
         <>
@@ -91,32 +94,5 @@ export function PrimaryButton({
         children
       )}
     </button>
-  );
-}
-
-export function Spinner({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={`size-4 animate-spin ${className}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="3"
-      />
-      <path
-        className="opacity-90"
-        d="M12 2a10 10 0 0 1 10 10"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

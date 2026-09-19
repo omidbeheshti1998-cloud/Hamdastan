@@ -1,34 +1,51 @@
 import { prisma } from "@/lib/db";
 
 /**
- * آیا این نام کاربری آزاد است؟
+ * نام‌های کاربریِ گرفته‌شده از میان یک فهرست نامزد.
  *
- * با `$queryRaw` و `lower()` انجام می‌شود، نه با `mode: "insensitive"` پریزما:
- * آن حالت روی PostgreSQL به `ILIKE` ترجمه می‌شود و `_` در نام کاربری مجاز است
- * ولی در `LIKE` یک wildcard است — یعنی `omid_` با `omidx` هم برابر می‌شد.
- * این کوئری از ایندکس `users_username_lower_key` هم استفاده می‌کند.
+ * یک کوئری برای همهٔ نامزدها، نه یکی به‌ازای هر کدام: هر رفت‌وبرگشت به دیتابیس
+ * حدود ۳۰۰ms است.
+ *
+ * مقایسه با `lower()` است و نه `mode: "insensitive"` پریزما، چون آن حالت روی
+ * PostgreSQL به `ILIKE` ترجمه می‌شود و `_` در نام کاربری مجاز است ولی در `LIKE`
+ * یک wildcard است — یعنی `omid_` با `omidx` هم برابر می‌شد. این کوئری از ایندکس
+ * `users_username_lower_key` هم استفاده می‌کند.
  */
-export async function isUsernameTaken(username: string, exceptUserId?: string): Promise<boolean> {
-  const rows = await prisma.$queryRaw<{ id: string }[]>`
-    SELECT id FROM users WHERE lower(username) = lower(${username}) LIMIT 1
+async function takenAmong(candidates: string[], exceptUserId?: string): Promise<Set<string>> {
+  const rows = await prisma.$queryRaw<{ id: string; name: string }[]>`
+    SELECT id, lower(username) AS name
+    FROM users
+    WHERE lower(username) = ANY(${candidates.map((name) => name.toLowerCase())}::text[])
   `;
-  return rows.length > 0 && rows[0].id !== exceptUserId;
+
+  return new Set(
+    rows.filter((row) => row.id !== exceptUserId).map((row) => row.name),
+  );
+}
+
+export async function isUsernameTaken(username: string, exceptUserId?: string): Promise<boolean> {
+  const taken = await takenAmong([username], exceptUserId);
+  return taken.has(username.toLowerCase());
 }
 
 /**
- * پیشنهاد برای نام کاربری گرفته‌شده.
- * سمت سرور تولید می‌شود چون فقط او می‌داند چه چیزی آزاد است.
+ * وضعیت یک نام کاربری به‌همراه پیشنهادهای آزاد — همه در یک رفت‌وبرگشت.
+ * پیشنهادها را سرور می‌سازد چون فقط او می‌داند چه چیزی آزاد است.
  */
-export async function suggestUsernames(username: string): Promise<string[]> {
+export async function checkUsernameAvailability(
+  username: string,
+): Promise<{ available: boolean; suggestions: string[] }> {
   const candidates = [
     `${username}_`,
     `${username}${Math.floor(Math.random() * 90) + 10}`,
     username.length > 3 ? `${username.slice(0, -2)}.${username.slice(-2)}` : null,
   ].filter((candidate): candidate is string => candidate !== null);
 
-  const available: string[] = [];
-  for (const candidate of candidates) {
-    if (!(await isUsernameTaken(candidate))) available.push(candidate);
-  }
-  return available;
+  const taken = await takenAmong([username, ...candidates]);
+  if (!taken.has(username.toLowerCase())) return { available: true, suggestions: [] };
+
+  return {
+    available: false,
+    suggestions: candidates.filter((candidate) => !taken.has(candidate.toLowerCase())),
+  };
 }

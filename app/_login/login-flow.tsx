@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { addTransitionType, startTransition, ViewTransition, useState } from "react";
 import {
   checkMobile,
   register,
@@ -35,6 +35,20 @@ type Step =
 
 const NETWORK_ERROR = "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.";
 
+/**
+ * ترتیب مراحل فقط برای تشخیص جهت حرکت است، نه برای کنترل فلو.
+ * با این ترتیب لازم نیست هر جابه‌جایی دستی «جلو» یا «عقب» برچسب بخورد.
+ */
+const STEP_ORDER: Step[] = [
+  "mobile",
+  "profile",
+  "otp",
+  "interests",
+  "preferences",
+  "identity",
+  "onboarded",
+];
+
 export function LoginFlow() {
   const [step, setStep] = useState<Step>("mobile");
   // ورودی‌ها در سطح فلو نگه داشته می‌شوند تا «بازگشت» داده‌های قبلی را حفظ کند.
@@ -52,6 +66,25 @@ export function LoginFlow() {
   // مرحلهٔ OTP در هر دو مسیر یکی است؛ فقط کاری که با کد تأییدشده می‌شود فرق دارد.
   const [otpPurpose, setOtpPurpose] = useState<"login" | "signup">("login");
 
+  /**
+   * تنها راه عوض کردن مرحله. دو کار می‌کند:
+   * ۱) جهت را از ترتیب مراحل درمی‌آورد و به‌عنوان «نوع ترنزیشن» ثبت می‌کند.
+   * ۲) تغییر را داخل `startTransition` می‌گذارد — بدون این، `<ViewTransition>`
+   *    اصلاً فعال نمی‌شود چون setState معمولی ترنزیشن به حساب نمی‌آید.
+   * نوع ترنزیشن عمداً به‌جای prop استفاده شده: عنصری که دارد خارج می‌شود
+   * props رندر قبلی‌اش را دارد، پس جهت روی آن کهنه می‌ماند.
+   */
+  function go(next: Step) {
+    const from = STEP_ORDER.indexOf(step);
+    const to = STEP_ORDER.indexOf(next);
+    const back = from !== -1 && to !== -1 && to < from;
+
+    startTransition(() => {
+      addTransitionType(back ? "step-back" : "step-forward");
+      setStep(next);
+    });
+  }
+
   async function handleMobileSubmit() {
     if (loading || !isValidMobile(mobile)) return;
     setLoading(true);
@@ -62,9 +95,9 @@ export function LoginFlow() {
         // کاربر موجود: کد تأیید پیش از نمایش مرحلهٔ بعد ارسال می‌شود.
         await sendOtp(mobile);
         setOtpPurpose("login");
-        setStep("otp");
+        go("otp");
       } else {
-        setStep("profile");
+        go("profile");
       }
     } catch {
       setError(NETWORK_ERROR);
@@ -88,7 +121,7 @@ export function LoginFlow() {
     try {
       await sendOtp(mobile);
       setOtpPurpose("signup");
-      setStep("otp");
+      go("otp");
     } catch {
       setError(NETWORK_ERROR);
     } finally {
@@ -103,7 +136,7 @@ export function LoginFlow() {
   async function handleOtpVerify(code: string): Promise<{ ok: boolean }> {
     if (otpPurpose === "login") {
       const result = await verifyOtp(mobile, code);
-      if (result.ok) setStep("loggedIn");
+      if (result.ok) go("loggedIn");
       return result;
     }
 
@@ -113,7 +146,7 @@ export function LoginFlow() {
       profile.firstName.trim(),
       profile.lastName.trim(),
     );
-    if (result.ok) setStep("interests");
+    if (result.ok) go("interests");
     return result;
   }
 
@@ -123,7 +156,7 @@ export function LoginFlow() {
     setError(undefined);
     try {
       await saveInterests(interests);
-      setStep("preferences");
+      go("preferences");
     } catch {
       setError(NETWORK_ERROR);
     } finally {
@@ -157,7 +190,7 @@ export function LoginFlow() {
         ? current
         : { ...current, avatar: { kind: "preset", id: randomAvatarId() } },
     );
-    setStep("identity");
+    go("identity");
   }
 
   async function handleIdentitySubmit() {
@@ -166,7 +199,7 @@ export function LoginFlow() {
     setError(undefined);
     try {
       await saveProfile(identity);
-      setStep("onboarded");
+      go("onboarded");
     } catch (cause) {
       // بین بررسی حین تایپ و ذخیره، ممکن است کسی همان نام کاربری را گرفته باشد.
       setError(
@@ -181,11 +214,21 @@ export function LoginFlow() {
 
   function backToMobile() {
     setError(undefined);
-    setStep("mobile");
+    go("mobile");
   }
 
+  // `key={step}` باعث می‌شود React مرحلهٔ قبل و بعد را جفتِ خروج/ورود ببیند،
+  // نه یک به‌روزرسانی درجا. کلاس‌ها از روی نوع ترنزیشنی که `go` ثبت کرده
+  // انتخاب می‌شوند؛ `default: "none"` جلوی انیمیت شدن در ترنزیشن‌های نامربوط
+  // (مثل رفرش یا back مرورگر) را می‌گیرد.
+  const direction = {
+    "step-forward": "step-forward",
+    "step-back": "step-back",
+    default: "none",
+  } as const;
+
   return (
-    <div key={step} className="animate-step-in">
+    <ViewTransition key={step} enter={direction} exit={direction} default="none">
       {step === "mobile" ? (
         <MobileStep
           mobile={mobile}
@@ -217,7 +260,7 @@ export function LoginFlow() {
           selection={interests}
           onChange={setInterests}
           onSubmit={handleInterestsSubmit}
-          onSkip={() => setStep("preferences")}
+          onSkip={() => go("preferences")}
           loading={loading}
           error={error}
         />
@@ -246,6 +289,6 @@ export function LoginFlow() {
       ) : (
         <DoneStep title="خوش برگشتی" description="با موفقیت وارد حساب خود شدید." />
       )}
-    </div>
+    </ViewTransition>
   );
 }

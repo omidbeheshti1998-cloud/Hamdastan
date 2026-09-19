@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { requireEnv } from "./env";
 
 /**
  * هش کد تأیید و توکن نشست.
@@ -7,14 +8,5 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * فوراً برمی‌گردد. با کلید سرور، دامپ دیتابیس به‌تنهایی به کد نمی‌رسد.
  */
 export function hashToken(value: string): string {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
-  return createHmac("sha256", secret).update(value).digest("hex");
-}
-
-/** مقایسهٔ دو هش hex در زمان ثابت. */
-export function hashesMatch(a: string, b: string): boolean {
-  const left = Buffer.from(a, "hex");
-  const right = Buffer.from(b, "hex");
-  return left.length === right.length && timingSafeEqual(left, right);
+  return createHmac("sha256", requireEnv("AUTH_SECRET")).update(value).digest("hex");
 }

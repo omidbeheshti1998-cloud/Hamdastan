@@ -133,7 +133,7 @@ export function OtpStep({
           type="button"
           onClick={onEditMobile}
           disabled={busy}
-          className="text-sm font-medium text-zinc-500 underline underline-offset-4 transition hover:text-zinc-900 disabled:opacity-40 dark:hover:text-zinc-100"
+          className="text-sm font-medium text-zinc-500 underline underline-offset-4 transition hover:text-zinc-900 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100 dark:hover:text-zinc-100"
         >
           ویرایش شماره
         </button>
@@ -178,7 +178,7 @@ export function OtpStep({
               type="button"
               onClick={() => void handleResend()}
               disabled={busy}
-              className="flex h-11 items-center gap-2 font-medium text-zinc-900 underline underline-offset-4 disabled:opacity-40 dark:text-zinc-100"
+              className="flex h-11 items-center gap-2 font-medium text-zinc-900 underline underline-offset-4 disabled:opacity-40 dark:text-zinc-100 active:scale-95 motion-reduce:active:scale-100"
             >
               {resending ? <Spinner /> : null}
               ارسال مجدد کد
@@ -188,7 +188,7 @@ export function OtpStep({
               type="button"
               onClick={() => void verify(code)}
               disabled={busy || code.length !== OTP_LENGTH}
-              className="h-11 font-medium text-zinc-900 underline underline-offset-4 disabled:opacity-40 dark:text-zinc-100"
+              className="h-11 font-medium text-zinc-900 underline underline-offset-4 disabled:opacity-40 dark:text-zinc-100 active:scale-95 motion-reduce:active:scale-100"
             >
               تلاش مجدد
             </button>

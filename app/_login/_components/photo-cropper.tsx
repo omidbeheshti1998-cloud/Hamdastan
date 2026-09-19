@@ -134,7 +134,7 @@ export function PhotoCropper({
           step={0.01}
           value={zoom}
           onChange={(event) => setZoom(Number(event.target.value))}
-          className="w-full accent-zinc-900 dark:accent-zinc-100"
+          className="w-full accent-accent"
           aria-label="بزرگ‌نمایی عکس"
         />
       </label>
@@ -144,14 +144,14 @@ export function PhotoCropper({
           type="button"
           onClick={confirm}
           disabled={!natural || saving}
-          className="h-12 flex-1 rounded-xl bg-zinc-900 text-sm font-semibold text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+          className="h-12 flex-1 rounded-xl bg-zinc-900 text-sm font-semibold text-white shadow-xs transition enabled:hover:bg-zinc-800 enabled:active:scale-[0.97] disabled:opacity-40 disabled:shadow-none motion-reduce:enabled:active:scale-100 dark:bg-zinc-100 dark:text-zinc-900 dark:shadow-none dark:enabled:hover:bg-white"
         >
           تأیید
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="h-12 flex-1 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300"
+          className="h-12 flex-1 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-600 transition hover:border-zinc-400 active:scale-[0.97] motion-reduce:active:scale-100 dark:border-zinc-800 dark:text-zinc-300"
         >
           انصراف
         </button>

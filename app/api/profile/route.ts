@@ -1,8 +1,8 @@
 import { AVATARS, BIO_MAX_LENGTH, isValidUsername } from "@/lib/profile";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { badRequest, noContent, unauthorized } from "@/lib/server/request";
 import { currentUserId } from "@/lib/server/session";
-import { isUsernameTaken } from "@/lib/server/username";
 
 const PRESET_IDS = new Set(AVATARS.map((avatar) => avatar.id));
 
@@ -49,50 +49,49 @@ export async function POST(request: Request) {
     return badRequest("invalid_avatar");
   }
 
-  if (await isUsernameTaken(username, userId)) {
-    return Response.json({ error: "username_taken" }, { status: 409 });
-  }
-
   const photoBytes =
     avatarKind === "photo" && photo instanceof File
       ? Buffer.from(await photo.arrayBuffer())
       : null;
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          username,
-          bio: bio || null,
-          avatarKind,
-          avatarPresetId: avatarKind === "preset" ? presetId : null,
-          onboardedAt: new Date(),
-        },
-      });
+  // پروفایل و آواتار در یک statement به‌روز می‌شوند، نه در یک تراکنش تعاملی:
+  // تراکنش تعاملی یعنی BEGIN و هر دستور و COMMIT هر کدام یک رفت‌وبرگشت جدا،
+  // و هر رفت‌وبرگشت حدود ۳۰۰ms. دو جدول متفاوت‌اند، پس CTE اینجا کاملاً بی‌خطر است.
+  //
+  // یکتایی نام کاربری از قبل بررسی نمی‌شود: آن یک کوئری اضافه بود و حرف آخر را
+  // هم نمی‌زد، چون بین بررسی و درج کسی می‌تواند همان نام را بگیرد. ایندکس یکتا
+  // تنها مرجع است و نقضش به `409` ترجمه می‌شود.
+  const updateUser = Prisma.sql`
+    UPDATE users SET
+      username = ${username},
+      bio = ${bio || null},
+      avatar_kind = ${avatarKind},
+      avatar_preset_id = ${avatarKind === "preset" ? presetId : null},
+      onboarded_at = now(),
+      updated_at = now()
+    WHERE id = ${userId}::uuid
+  `;
 
-      if (photoBytes && photo instanceof File) {
-        await tx.userAvatar.upsert({
-          where: { userId },
-          create: {
-            userId,
-            mimeType: photo.type,
-            byteSize: photoBytes.byteLength,
-            data: photoBytes,
-          },
-          update: {
-            mimeType: photo.type,
-            byteSize: photoBytes.byteLength,
-            data: photoBytes,
-          },
-        });
-      } else {
-        // انتخاب آواتار آماده، عکس قبلی را کنار می‌گذارد.
-        await tx.userAvatar.deleteMany({ where: { userId } });
-      }
-    });
+  try {
+    if (photoBytes && photo instanceof File) {
+      await prisma.$executeRaw`
+        WITH updated AS (${updateUser})
+        INSERT INTO user_avatars (user_id, mime_type, byte_size, data, updated_at)
+        VALUES (${userId}::uuid, ${photo.type}, ${photoBytes.byteLength}, ${photoBytes}, now())
+        ON CONFLICT (user_id) DO UPDATE SET
+          mime_type = EXCLUDED.mime_type,
+          byte_size = EXCLUDED.byte_size,
+          data = EXCLUDED.data,
+          updated_at = now()
+      `;
+    } else {
+      // انتخاب آواتار آماده، عکس قبلی را کنار می‌گذارد.
+      await prisma.$executeRaw`
+        WITH updated AS (${updateUser})
+        DELETE FROM user_avatars WHERE user_id = ${userId}::uuid
+      `;
+    }
   } catch (error) {
-    // مسابقه بین بررسی بالا و همین insert: ایندکس یکتا حرف آخر را می‌زند.
     if (isUniqueViolation(error)) {
       return Response.json({ error: "username_taken" }, { status: 409 });
     }
@@ -102,11 +101,10 @@ export async function POST(request: Request) {
   return noContent();
 }
 
+/** نقض ایندکس یکتا — چه از پریزما بیاید (`P2002`) چه از خود PostgreSQL (`23505`). */
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2002"
-  );
+  if (typeof error !== "object" || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  if (code === "P2002" || code === "23505") return true;
+  return isUniqueViolation((error as { cause?: unknown }).cause);
 }

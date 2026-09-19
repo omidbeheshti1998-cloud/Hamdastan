@@ -31,15 +31,19 @@ export async function POST(request: Request) {
   const answers = parseAnswers(body?.answers);
   if (!answers) return badRequest("invalid_answers");
 
-  await prisma.$transaction(
-    [...answers].map(([dimension, answer]) =>
-      prisma.userPreference.upsert({
-        where: { userId_dimension: { userId, dimension } },
-        create: { userId, dimension, answer },
-        update: { answer },
-      }),
-    ),
-  );
+  // یک statement برای همهٔ محورها.
+  // هر رفت‌وبرگشت به دیتابیس حدود ۳۰۰ms است، پس هفت `upsert` جدا یعنی هفت برابر
+  // انتظار برای کاربر. پریزما upsert چندردیفی ندارد، برای همین SQL خام.
+  const dimensions = [...answers.keys()];
+  const values = [...answers.values()];
+
+  await prisma.$executeRaw`
+    INSERT INTO user_preferences (user_id, dimension, answer, updated_at)
+    SELECT ${userId}::uuid, d, a, now()
+    FROM unnest(${dimensions}::text[], ${values}::int[]) AS t(d, a)
+    ON CONFLICT (user_id, dimension)
+    DO UPDATE SET answer = EXCLUDED.answer, updated_at = now()
+  `;
 
   return noContent();
 }

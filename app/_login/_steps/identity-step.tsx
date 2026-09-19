@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { startTransition, ViewTransition, useEffect, useRef, useState } from "react";
 import { checkUsername } from "@/lib/auth/client";
 import {
   AVATARS,
@@ -87,7 +87,9 @@ export function IdentityStep({
   function replaceAvatar(next: AvatarChoice) {
     // آدرس blob قبلی آزاد می‌شود تا نشت حافظه نداشته باشیم.
     if (avatar?.kind === "photo") URL.revokeObjectURL(avatar.url);
-    set({ avatar: next });
+    // بدون `startTransition` عوض شدن آواتار یک پرش ناگهانی است؛
+    // `<ViewTransition>` فقط داخل ترنزیشن فعال می‌شود.
+    startTransition(() => set({ avatar: next }));
   }
 
   function onPhotoPicked(file: File | undefined) {
@@ -109,7 +111,6 @@ export function IdentityStep({
   return (
     <div>
       <StepHeader
-        progress="مرحله آخر"
         title="دوست داری چطور دیده بشی؟"
         description="یه نام کاربری، عکس و معرفی کوتاه برای پروفایلت انتخاب کن."
       />
@@ -127,7 +128,7 @@ export function IdentityStep({
           className={`flex h-14 items-center rounded-xl border bg-white ps-4 transition focus-within:ring-4 dark:bg-zinc-900 ${
             status === "taken"
               ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/15"
-              : "border-zinc-200 focus-within:border-zinc-900 focus-within:ring-zinc-900/10 dark:border-zinc-800 dark:focus-within:border-zinc-300 dark:focus-within:ring-zinc-100/10"
+              : "border-zinc-200 focus-within:border-accent focus-within:ring-accent/14 dark:border-zinc-800"
           }`}
         >
           <span aria-hidden="true" className="text-base text-zinc-400">
@@ -178,7 +179,7 @@ export function IdentityStep({
                 type="button"
                 onClick={() => set({ username: suggestion })}
                 disabled={loading}
-                className="h-10 rounded-full border border-zinc-200 px-3 text-sm text-zinc-700 transition hover:border-zinc-400 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300"
+                className="h-10 rounded-full border border-zinc-200 px-3 text-sm text-zinc-700 transition hover:border-zinc-400 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100 dark:border-zinc-700 dark:text-zinc-300"
               >
                 @{suggestion}
               </button>
@@ -218,7 +219,9 @@ export function IdentityStep({
         ) : (
           <>
             <div className="mt-4 flex flex-col items-center">
-              <CurrentAvatar avatar={avatar} />
+              <ViewTransition key={avatarKey(avatar)} enter="avatar-swap" exit="avatar-swap" default="none">
+                <CurrentAvatar avatar={avatar} />
+              </ViewTransition>
               <div className="mt-4 flex gap-2">
                 <SecondaryAction
                   onClick={() => setPicker(picker === "avatars" ? "none" : "avatars")}
@@ -248,13 +251,13 @@ export function IdentityStep({
                         disabled={loading}
                         aria-pressed={selected}
                         aria-label={item.label}
-                        className={`flex aspect-square w-full items-center justify-center rounded-xl border-2 p-1.5 transition disabled:opacity-60 ${
+                        className={`flex aspect-square w-full items-center justify-center rounded-xl border-2 p-1.5 transition active:scale-95 disabled:opacity-60 motion-reduce:active:scale-100 ${
                           selected
-                            ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
+                            ? "border-accent bg-accent-soft"
                             : "border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                         }`}
                       >
-                        <AvatarArt id={item.id} className="size-full" />
+                        <AvatarArt id={item.id} className="size-full" alive={selected} />
                       </button>
                     </li>
                   );
@@ -283,7 +286,7 @@ export function IdentityStep({
           rows={3}
           maxLength={BIO_MAX_LENGTH}
           disabled={loading}
-          className="max-h-40 min-h-24 w-full scroll-mb-40 resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base leading-8 text-zinc-900 outline-none transition field-sizing-content placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/10 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:border-zinc-300"
+          className="max-h-40 min-h-24 w-full scroll-mb-40 resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base leading-8 text-zinc-900 outline-none transition field-sizing-content placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/14 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
         />
         <p
           dir="ltr"
@@ -305,7 +308,7 @@ export function IdentityStep({
             <button
               type="button"
               onClick={onSubmit}
-              className="mt-1 h-9 text-sm font-medium text-zinc-900 underline underline-offset-4 dark:text-zinc-100"
+              className="mt-1 h-9 text-sm font-medium text-zinc-900 underline underline-offset-4 dark:text-zinc-100 active:scale-95 motion-reduce:active:scale-100"
             >
               تلاش دوباره
             </button>
@@ -325,6 +328,12 @@ export function IdentityStep({
   );
 }
 
+/** شناسهٔ پایدار آواتار فعلی — فقط برای تشخیص «عوض شد» توسط ViewTransition. */
+function avatarKey(avatar: AvatarChoice): string {
+  if (!avatar) return "none";
+  return avatar.kind === "photo" ? avatar.url : avatar.id;
+}
+
 function CurrentAvatar({ avatar }: { avatar: AvatarChoice }) {
   if (avatar?.kind === "photo") {
     return (
@@ -341,6 +350,7 @@ function CurrentAvatar({ avatar }: { avatar: AvatarChoice }) {
     <AvatarArt
       id={avatar?.kind === "preset" ? avatar.id : AVATARS[0].id}
       className="size-24 rounded-full"
+      alive
     />
   );
 }
@@ -361,9 +371,9 @@ function SecondaryAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`h-11 rounded-full border px-4 text-sm font-medium transition disabled:opacity-40 ${
+      className={`h-11 rounded-full border px-4 text-sm font-medium transition active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100 ${
         active
-          ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+          ? "border-accent bg-accent-soft text-zinc-900 dark:text-zinc-50"
           : "border-zinc-200 text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
       }`}
     >

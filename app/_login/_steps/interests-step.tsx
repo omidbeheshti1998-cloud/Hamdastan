@@ -7,6 +7,7 @@ import {
   type InterestCategory,
   type InterestSelection,
 } from "@/lib/interests";
+import { CheckIcon, ChevronDownIcon, CloseIcon } from "../_components/icons";
 import { PrimaryButton, StepHeader } from "../_components/ui";
 
 export function InterestsStep({
@@ -58,7 +59,6 @@ export function InterestsStep({
   return (
     <div>
       <StepHeader
-        progress="مرحله ۳ از ۳"
         title="به چه چیزهایی علاقه داری؟"
         description={
           <>
@@ -117,7 +117,7 @@ export function InterestsStep({
           type="button"
           onClick={onSkip}
           disabled={loading}
-          className="mx-auto mt-3 block h-11 px-3 text-sm text-zinc-400 transition hover:text-zinc-600 disabled:opacity-40 dark:hover:text-zinc-300"
+          className="mx-auto mt-3 block h-11 px-3 text-sm text-zinc-400 transition hover:text-zinc-600 disabled:opacity-40 dark:hover:text-zinc-300 active:scale-95 motion-reduce:active:scale-100"
         >
           فعلاً رد کردن
         </button>
@@ -151,7 +151,7 @@ function CategoryCard({
     <li
       className={`overflow-hidden rounded-xl border transition-colors ${
         selected
-          ? "border-zinc-900 bg-white dark:border-zinc-100 dark:bg-zinc-900"
+          ? "border-accent bg-white dark:bg-zinc-900"
           : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
@@ -166,25 +166,15 @@ function CategoryCard({
         >
           <span
             aria-hidden="true"
+            // فقط دور دایره نارنجی می‌شود، نه داخلش: دایرهٔ توپُر وزن بصری
+            // زیادی داشت و با دکمهٔ اصلی رقابت می‌کرد.
             className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition ${
               selected
-                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                ? "border-accent text-accent"
                 : "border-zinc-300 dark:border-zinc-600"
             }`}
           >
-            {selected ? (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="size-3.5"
-                stroke="currentColor"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m5 13 4 4L19 7" />
-              </svg>
-            ) : null}
+            {selected ? <CheckIcon className="size-4" /> : null}
           </span>
 
           <span className="flex-1 font-medium text-zinc-900 dark:text-zinc-50">
@@ -197,20 +187,11 @@ function CategoryCard({
             </span>
           ) : null}
 
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            className={`size-4 shrink-0 text-zinc-400 transition-transform duration-200 ${
+          <ChevronDownIcon
+            className={`size-4 shrink-0 text-zinc-400 transition-transform ${
               expanded ? "rotate-180" : ""
             }`}
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+          />
         </button>
 
         {selected ? (
@@ -221,17 +202,7 @@ function CategoryCard({
             aria-label={`حذف ${category.label}`}
             className="flex size-12 shrink-0 items-center justify-center text-zinc-400 transition hover:text-zinc-900 disabled:opacity-40 dark:hover:text-zinc-100"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-              className="size-4"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <CloseIcon className="size-4" />
           </button>
         ) : null}
       </div>
@@ -255,9 +226,9 @@ function CategoryCard({
                   onClick={() => onToggleSub(sub.id)}
                   disabled={disabled}
                   aria-pressed={active}
-                  className={`h-11 rounded-full border px-4 text-sm transition disabled:opacity-60 ${
+                  className={`h-11 rounded-full border px-4 text-sm transition active:scale-95 disabled:opacity-60 motion-reduce:active:scale-100 ${
                     active
-                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                      ? "border-accent bg-accent-soft text-zinc-900 dark:text-zinc-50"
                       : "border-zinc-200 text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
                   }`}
                 >

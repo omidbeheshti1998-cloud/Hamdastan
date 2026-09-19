@@ -12,8 +12,8 @@ type Art = { bg: string; body: ReactNode };
 
 const eyes = (color = "#3B2415", cx = 7, cy = 32, r = 2.6) => (
   <>
-    <circle cx={32 - cx} cy={cy} r={r} fill={color} />
-    <circle cx={32 + cx} cy={cy} r={r} fill={color} />
+    <circle className="avatar-eye" cx={32 - cx} cy={cy} r={r} fill={color} />
+    <circle className="avatar-eye" cx={32 + cx} cy={cy} r={r} fill={color} />
   </>
 );
 
@@ -88,8 +88,8 @@ const ART: Record<string, Art> = {
         })}
         <circle cx="32" cy="32" r="15" fill="#D9922E" />
         <circle cx="32" cy="33" r="12.5" fill="#F5C168" />
-        <circle cx="27" cy="30" r="2.3" fill="#4A2E0B" />
-        <circle cx="37" cy="30" r="2.3" fill="#4A2E0B" />
+        <circle className="avatar-eye" cx="27" cy="30" r="2.3" fill="#4A2E0B" />
+        <circle className="avatar-eye" cx="37" cy="30" r="2.3" fill="#4A2E0B" />
         <path d="M32 34.5 35 37.5 32 40 29 37.5z" fill="#4A2E0B" />
         <path d="M28 40c2 2.2 6 2.2 8 0" stroke="#4A2E0B" strokeWidth="2" strokeLinecap="round" fill="none" />
       </>
@@ -134,8 +134,8 @@ const ART: Record<string, Art> = {
         <path d="M18 24c-3-6 2-10 7-8l-2 12z" fill="#E86FA8" />
         <circle cx="33" cy="35" r="16" fill="#FFFFFF" />
         <path d="M46 24c4-4 9 0 8 5l-9 4z" fill="#E86FA8" />
-        <circle cx="27" cy="33" r="2.6" fill="#4A2A5E" />
-        <circle cx="39" cy="33" r="2.6" fill="#4A2A5E" />
+        <circle className="avatar-eye" cx="27" cy="33" r="2.6" fill="#4A2A5E" />
+        <circle className="avatar-eye" cx="39" cy="33" r="2.6" fill="#4A2A5E" />
         <ellipse cx="33" cy="43" rx="6" ry="4" fill="#FFE2EF" />
       </>
     ),
@@ -147,8 +147,8 @@ const ART: Record<string, Art> = {
         <path d="M32 10c2.5 0 4.6 2.4 5.6 6.8h-11.2C27.4 12.4 29.5 10 32 10z" fill="#2E7FB4" />
         <circle cx="32" cy="33" r="17" fill="#4BA3DC" />
         <ellipse cx="32" cy="43" rx="9.5" ry="7" fill="#EAF6FD" />
-        <circle cx="25" cy="30" r="2.6" fill="#123A55" />
-        <circle cx="39" cy="30" r="2.6" fill="#123A55" />
+        <circle className="avatar-eye" cx="25" cy="30" r="2.6" fill="#123A55" />
+        <circle className="avatar-eye" cx="39" cy="30" r="2.6" fill="#123A55" />
         <path d="M28 43.5c2 2.2 6 2.2 8 0" stroke="#3E9BD6" strokeWidth="2.2" strokeLinecap="round" fill="none" />
       </>
     ),
@@ -157,10 +157,15 @@ const ART: Record<string, Art> = {
     bg: "#FFE6F1",
     body: (
       <>
-        <ellipse cx="21" cy="26" rx="11" ry="9" fill="#E8619A" transform="rotate(-20 21 26)" />
-        <ellipse cx="43" cy="26" rx="11" ry="9" fill="#E8619A" transform="rotate(20 43 26)" />
-        <ellipse cx="23" cy="41" rx="8" ry="7" fill="#F49AC1" transform="rotate(-15 23 41)" />
-        <ellipse cx="41" cy="41" rx="8" ry="7" fill="#F49AC1" transform="rotate(15 41 41)" />
+        {/* چپ/راست اینجا مختصات داخلی SVG است و با `dir` صفحه عوض نمی‌شود. */}
+        <g className="avatar-wing-left">
+          <ellipse cx="21" cy="26" rx="11" ry="9" fill="#E8619A" transform="rotate(-20 21 26)" />
+          <ellipse cx="23" cy="41" rx="8" ry="7" fill="#F49AC1" transform="rotate(-15 23 41)" />
+        </g>
+        <g className="avatar-wing-right">
+          <ellipse cx="43" cy="26" rx="11" ry="9" fill="#E8619A" transform="rotate(20 43 26)" />
+          <ellipse cx="41" cy="41" rx="8" ry="7" fill="#F49AC1" transform="rotate(15 41 41)" />
+        </g>
         <rect x="30.5" y="20" width="3" height="26" rx="1.5" fill="#5B3A50" />
         <path d="M32 21c-2-4-5-6-8-6M32 21c2-4 5-6 8-6" stroke="#5B3A50" strokeWidth="2" strokeLinecap="round" fill="none" />
       </>
@@ -181,14 +186,16 @@ const ART: Record<string, Art> = {
     bg: "#E7EAF7",
     body: (
       <>
-        {/* هلال = دایرهٔ بزرگ منهای دایرهٔ جابه‌جاشده، با fill-rule=evenodd */}
-        <path
-          fillRule="evenodd"
-          fill="#8E97D6"
-          d="M9 33a21 21 0 1 0 42 0 21 21 0 1 0-42 0zM27 26a19 19 0 1 0 38 0 19 19 0 1 0-38 0z"
-        />
-        <circle cx="18" cy="30" r="3.2" fill="#7A83C4" />
-        <circle cx="24" cy="44" r="2.4" fill="#7A83C4" />
+        <g className="avatar-float">
+          {/* هلال = دایرهٔ بزرگ منهای دایرهٔ جابه‌جاشده، با fill-rule=evenodd */}
+          <path
+            fillRule="evenodd"
+            fill="#8E97D6"
+            d="M9 33a21 21 0 1 0 42 0 21 21 0 1 0-42 0zM27 26a19 19 0 1 0 38 0 19 19 0 1 0-38 0z"
+          />
+          <circle cx="18" cy="30" r="3.2" fill="#7A83C4" />
+          <circle cx="24" cy="44" r="2.4" fill="#7A83C4" />
+        </g>
       </>
     ),
   },
@@ -196,8 +203,10 @@ const ART: Record<string, Art> = {
     bg: "#E8F6E4",
     body: (
       <>
-        {[0, 72, 144, 216, 288].map((a) => petal(a, "#EF7C8E"))}
-        <circle cx="32" cy="32" r="8" fill="#FFC93C" />
+        <g className="avatar-sway">
+          {[0, 72, 144, 216, 288].map((a) => petal(a, "#EF7C8E"))}
+          <circle cx="32" cy="32" r="8" fill="#FFC93C" />
+        </g>
       </>
     ),
   },
@@ -219,15 +228,22 @@ const ART: Record<string, Art> = {
 export function AvatarArt({
   id,
   className = "",
+  alive = false,
 }: {
   /** شناسهٔ آواتار از `AVATARS`. */
   id: string;
   className?: string;
+  /** آواتار انتخاب‌شده پلک می‌زند؛ بقیه ساکن می‌مانند. */
+  alive?: boolean;
 }) {
   const art = ART[id];
 
   return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 64 64"
+      className={`${alive ? "avatar-alive" : ""} ${className}`}
+      aria-hidden="true"
+    >
       <circle cx="32" cy="32" r="32" fill={art?.bg ?? "#E7E7EA"} />
       {art?.body}
     </svg>

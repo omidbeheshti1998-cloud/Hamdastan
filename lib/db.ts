@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/lib/generated/prisma/client";
+import { requireEnv } from "@/lib/server/env";
 
 /**
  * تنها نمونهٔ PrismaClient اپ.
@@ -13,7 +14,7 @@ import { PrismaClient } from "@/lib/generated/prisma/client";
 
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    adapter: new PrismaPg({ connectionString: requireEnv("DATABASE_URL") }),
     log: process.env.PRISMA_LOG_QUERIES === "true" ? ["query"] : [],
   });
 

@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { hashesMatch, hashToken } from "./hash";
+import { hashToken } from "./hash";
 import { isDevSms, sendSms } from "./sms";
 
 /** اعتبار کد — همان ۲ دقیقه‌ای که UI نشان می‌دهد. مرجع، همین مقدار سمت سرور است. */
@@ -69,26 +69,26 @@ export async function issueOtp(mobile: string): Promise<void> {
  * اتمیک باشند.
  */
 export async function consumeOtp(db: Db, mobile: string, code: string): Promise<boolean> {
-  const pending = await db.otpCode.findFirst({
-    where: { mobile, consumedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!pending) return false;
-  if (pending.expiresAt <= new Date()) return false;
-  if (pending.attempts >= MAX_ATTEMPTS) return false;
-
-  if (!hashesMatch(pending.codeHash, digest(mobile, code))) {
-    await db.otpCode.update({
-      where: { id: pending.id },
-      data: { attempts: { increment: 1 } },
-    });
-    return false;
-  }
-
-  await db.otpCode.update({
-    where: { id: pending.id },
+  // همهٔ شرط‌ها داخل همین یک UPDATE‌اند تا مسیر موفق فقط یک رفت‌وبرگشت باشد.
+  // «آخرین کد» شرط لازم نیست: `issueOtp` هنگام ارسال، کدهای باز قبلی را می‌بندد،
+  // پس حداکثر یک ردیف با `consumedAt = null` برای هر شماره وجود دارد.
+  const { count } = await db.otpCode.updateMany({
+    where: {
+      mobile,
+      consumedAt: null,
+      codeHash: digest(mobile, code),
+      expiresAt: { gt: new Date() },
+      attempts: { lt: MAX_ATTEMPTS },
+    },
     data: { consumedAt: new Date() },
   });
-  return true;
+
+  if (count > 0) return true;
+
+  // کد غلط بود (یا منقضی/سوخته) — شمارندهٔ تلاش فقط در همین مسیر بالا می‌رود.
+  await db.otpCode.updateMany({
+    where: { mobile, consumedAt: null },
+    data: { attempts: { increment: 1 } },
+  });
+  return false;
 }
