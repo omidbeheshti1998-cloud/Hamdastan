@@ -5,13 +5,6 @@
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,8 +12,51 @@
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-kalameh);
+}
+
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  input,
+  textarea,
+  select {
+    text-align: start;
+  }
+
+  /* محتوای ذاتاً LTR: شماره، کد، ایمیل، URL
+     `unicode-bidi: isolate` لازم است، وگرنه `direction` روی span های inline
+     بی‌اثر است و عدد داخل جملهٔ فارسی به‌هم می‌ریزد. */
+  .ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
+  }
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ترنزیشن کوتاه بین مراحل فلو */
+@utility animate-step-in {
+  animation: step-in 0.24s ease-out both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
