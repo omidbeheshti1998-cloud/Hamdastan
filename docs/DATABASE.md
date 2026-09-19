@@ -73,6 +73,21 @@ SQL دست‌نویس نمی‌نویسیم؛ همیشه از `migrate diff` م�
   و دستی در انتهای `migration.sql` نوشته شده‌اند. `migrate diff` نه می‌بیندشان و
   نه حذفشان می‌کند.
 
+## Deploy
+
+`prisma generate` در stage `builder` اجرا می‌شود، نه هنگام `npm ci`. خروجی‌اش
+(`lib/generated`) نه در گیت است و نه در context ایمیج، و در stage نصب اصلاً
+schema ای وجود ندارد — به همین دلیل `npm ci --ignore-scripts` است و
+`postinstall` فقط برای توسعهٔ محلی می‌ماند.
+
+`prisma generate` به دیتابیس وصل نمی‌شود، پس build به `DATABASE_URL` نیاز ندارد.
+
+**هیچ فایل `.env` داخل ایمیج نمی‌رود** (`.env*` در `.dockerignore`). متغیرها
+باید در تنظیمات محیطیِ سرویس ست شوند؛ فهرستشان در [`.env.example`](../.env.example)
+است. بدون `AUTH_SECRET` اپ در اولین درخواست احراز هویت خطا می‌دهد.
+
+migration ها هنگام deploy خودکار اجرا نمی‌شوند — طبق قاعدهٔ بالا دستی اجرا می‌شوند.
+
 ## نکته‌های Prisma 7
 
 دو رفتار که با نسخه‌های قبلی فرق دارد:

@@ -6,3 +6,11 @@ Dockerfile
 .dockerignore
 npm-debug.log
 README.md
+
+# مقادیر محرمانه هرگز داخل ایمیج نمی‌روند؛ در runtime از محیط می‌آیند.
+.env*
+!.env.example
+
+test-results
+e2e
+docs

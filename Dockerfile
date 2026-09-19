@@ -5,7 +5,10 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# اسکریپت‌های نصب اینجا اجرا نمی‌شوند: postinstall پروژه `prisma generate` است و
+# در این stage فقط package.json کپی شده، پس schema وجود ندارد. کلاینت در stage
+# بعدی ساخته می‌شود، جایی که کل سورس هست.
+RUN npm ci --ignore-scripts
 
 FROM base AS builder
 WORKDIR /app
@@ -15,6 +18,9 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# خروجی generate در lib/generated است که نه در گیت است و نه در context ایمیج،
+# پس باید همین‌جا ساخته شود. به دیتابیس وصل نمی‌شود.
+RUN npx prisma generate
 RUN npm run build
 
 FROM base AS runner
