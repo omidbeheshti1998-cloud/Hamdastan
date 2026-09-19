@@ -1,19 +1,11 @@
 /**
- * تنها نقطهٔ تماس فرانت با «سرور» در فلو احراز هویت.
+ * تنها نقطهٔ تماس فرانت با سرور.
  *
- * فعلاً پیاده‌سازی Mock است (فقط UI ساخته شده). وقتی بک‌اند داخلی آماده شد،
- * بدنهٔ همین توابع به `fetch("/api/auth/…")` تبدیل می‌شود و هیچ کامپوننتی
- * لازم نیست تغییر کند. فرانت هرگز مستقیم به سرویس خارجی درخواست نمی‌زند —
- * آن تماس وظیفهٔ Route Handler های داخلی است.
+ * فرانت فقط به بک‌اند داخلی (Route Handler های همین اپ) درخواست می‌دهد؛ تماس با
+ * سرویس خارجی وظیفهٔ بک‌اند است و هرگز از مرورگر انجام نمی‌شود.
  *
- *   checkMobile    → POST /api/auth/check-mobile
- *   sendOtp        → POST /api/auth/otp/send
- *   verifyOtp      → POST /api/auth/otp/verify
- *   register       → POST /api/auth/register
- *   saveInterests  → POST /api/onboarding/interests
- *   savePreferences → POST /api/onboarding/preferences
- *   checkUsername  → GET  /api/profile/username-available
- *   saveProfile    → POST /api/profile
+ * هویت از کوکی نشست می‌آید، نه از پارامتر — به همین دلیل توابع onboarding دیگر
+ * شماره نمی‌گیرند. هر مقداری که کلاینت بفرستد را خودِ کلاینت انتخاب کرده.
  */
 
 import type { InterestSelection } from "@/lib/interests";
@@ -28,103 +20,121 @@ export class AuthNetworkError extends Error {
   }
 }
 
-/** کد صحیح در حالت Mock. */
-export const MOCK_OTP = "123456";
+/** نام کاربری‌ای که بین بررسی و ذخیره، کس دیگری گرفته است. */
+export class UsernameTakenError extends Error {
+  constructor() {
+    super("username already taken");
+    this.name = "UsernameTakenError";
+  }
+}
 
-/** وارد کردن این کد در حالت Mock خطای شبکه شبیه‌سازی می‌کند. */
-const MOCK_NETWORK_ERROR_OTP = "000000";
+/**
+ * قطع شبکه و پاسخ ۵xx هر دو یک چیزند از دید کاربر: «نشد، دوباره تلاش کن».
+ * خطای ۴xx یعنی باگ سمت ما و نباید در سکوت رد شود.
+ */
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(path, init);
+  } catch {
+    throw new AuthNetworkError();
+  }
+  if (response.status >= 500) throw new AuthNetworkError();
+  return response;
+}
 
-const MOCK_LATENCY_MS = 700;
+async function postJson(path: string, body: unknown): Promise<Response> {
+  return request(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** پاسخ موفق JSON، وگرنه خطای شبکه. */
+async function expectJson<T>(response: Response): Promise<T> {
+  if (!response.ok) throw new AuthNetworkError();
+  return (await response.json()) as T;
+}
 
-/** تنها شماره‌ای که در حالت Mock «حساب دارد» و به مسیر OTP می‌رود. */
-export const MOCK_REGISTERED_MOBILE = "09050466960";
+function expectNoContent(response: Response): void {
+  if (!response.ok) throw new AuthNetworkError();
+}
 
-/** آیا این شماره از قبل حساب دارد؟ Mock: فقط `MOCK_REGISTERED_MOBILE`؛ بقیه به ثبت‌نام می‌روند. */
+/** آیا این شماره از قبل حساب کامل دارد؟ */
 export async function checkMobile(mobile: string): Promise<{ registered: boolean }> {
-  await delay(MOCK_LATENCY_MS);
-  return { registered: mobile === MOCK_REGISTERED_MOBILE };
+  return expectJson(await postJson("/api/auth/check-mobile", { mobile }));
 }
 
 /** ارسال کد تأیید ۶ رقمی؛ هر بار فراخوانی، کد قبلی را باطل می‌کند. */
-export async function sendOtp(_mobile: string): Promise<void> {
-  await delay(MOCK_LATENCY_MS);
+export async function sendOtp(mobile: string): Promise<void> {
+  expectNoContent(await postJson("/api/auth/otp/send", { mobile }));
 }
 
-export async function verifyOtp(
-  _mobile: string,
+/** مسیر ورود. کد اشتباه خطا نیست و با `{ ok: false }` برمی‌گردد. */
+export async function verifyOtp(mobile: string, code: string): Promise<{ ok: boolean }> {
+  return expectJson(await postJson("/api/auth/otp/verify", { mobile, code }));
+}
+
+/**
+ * پایان ثبت‌نام: تأیید کد و ساخت حساب در یک درخواست.
+ * سرور هر دو را در یک تراکنش انجام می‌دهد تا شکست میانی، کاربر بی‌نام جا نگذارد.
+ */
+export async function register(
+  mobile: string,
   code: string,
+  firstName: string,
+  lastName: string,
 ): Promise<{ ok: boolean }> {
-  await delay(MOCK_LATENCY_MS);
-  if (code === MOCK_NETWORK_ERROR_OTP) throw new AuthNetworkError();
-  return { ok: code === MOCK_OTP };
+  return expectJson(
+    await postJson("/api/auth/register", { mobile, code, firstName, lastName }),
+  );
 }
 
 /**
- * علایق انتخاب‌شده در مرحلهٔ onboarding.
- * فقط انتخاب خام فرستاده می‌شود؛ محاسبهٔ Interest Score وظیفهٔ بک‌اند است
- * (فرمولش در `docs/ONBOARDING.md`) و هیچ‌وقت در UI دیده نمی‌شود.
+ * علایق انتخاب‌شده. فقط انتخاب خام می‌رود؛ محاسبهٔ Interest Score وظیفهٔ بک‌اند
+ * است (فرمولش در `docs/ONBOARDING.md`) و هیچ‌وقت در UI دیده نمی‌شود.
  */
-export async function saveInterests(
-  _mobile: string,
-  _selection: InterestSelection,
-): Promise<void> {
-  await delay(MOCK_LATENCY_MS);
+export async function saveInterests(selection: InterestSelection): Promise<void> {
+  expectNoContent(await postJson("/api/onboarding/interests", { selection }));
 }
 
 /**
- * ترجیحات رفتاری (مرحلهٔ «یکم بیشتر بشناسیمت»).
- * فقط مقدار خام هر محور (‎-1 / 0 / +1) می‌رود؛ هیچ برچسب یا امتیاز شخصیتی
- * نه محاسبه می‌شود و نه به کاربر نشان داده می‌شود.
+ * ترجیحات رفتاری. فقط مقدار خام هر محور (‎-1 / 0 / +1) می‌رود؛ هیچ برچسب یا
+ * امتیاز شخصیتی نه محاسبه می‌شود و نه به کاربر نشان داده می‌شود.
  */
-export async function savePreferences(
-  _mobile: string,
-  _answers: PreferenceAnswers,
-): Promise<void> {
-  await delay(MOCK_LATENCY_MS);
-}
-
-/** نام‌های کاربری‌ای که در حالت Mock «گرفته‌شده» حساب می‌شوند. */
-const MOCK_TAKEN_USERNAMES = ["mahdish", "omid", "admin", "test", "user", "hamdastan"];
-
-/**
- * پیشنهادها در نسخهٔ واقعی از بک‌اند می‌آیند (چون فقط او می‌داند چه چیزی آزاد
- * است). این تولیدکنندهٔ Mock عمداً قطعی است تا با هر رندر عوض نشود.
- */
-function mockSuggestions(username: string): string[] {
-  const seed = [...username].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const suggestions = [`${username}_`, `${username}${(seed % 90) + 10}`];
-  if (username.length > 3) {
-    suggestions.push(`${username.slice(0, -2)}.${username.slice(-2)}`);
-  }
-  return suggestions.filter((item) => !MOCK_TAKEN_USERNAMES.includes(item));
+export async function savePreferences(answers: PreferenceAnswers): Promise<void> {
+  expectNoContent(await postJson("/api/onboarding/preferences", { answers }));
 }
 
 export async function checkUsername(
   username: string,
 ): Promise<{ available: boolean; suggestions: string[] }> {
-  await delay(MOCK_LATENCY_MS);
-  const available = !MOCK_TAKEN_USERNAMES.includes(username.toLowerCase());
-  return { available, suggestions: available ? [] : mockSuggestions(username) };
+  const response = await request(
+    `/api/profile/username-available?username=${encodeURIComponent(username)}`,
+  );
+  return expectJson(response);
 }
 
 /**
  * پروفایل نهایی onboarding.
- * در نسخهٔ واقعی عکس باید به‌صورت `multipart/form-data` برود، نه data URL —
- * جزئیات در `docs/PROFILE.md`.
+ * عکس به‌صورت `multipart/form-data` می‌رود نه data URL — base64 حجم را یک‌سوم
+ * بیشتر می‌کند و کل بدنه را در حافظه نگه می‌دارد.
  */
-export async function saveProfile(
-  _mobile: string,
-  _identity: ProfileIdentity,
-): Promise<void> {
-  await delay(MOCK_LATENCY_MS);
-}
+export async function saveProfile(identity: ProfileIdentity): Promise<void> {
+  const form = new FormData();
+  form.set("username", identity.username);
+  form.set("bio", identity.bio);
 
-export async function register(
-  _mobile: string,
-  _firstName: string,
-  _lastName: string,
-): Promise<void> {
-  await delay(MOCK_LATENCY_MS);
+  if (identity.avatar?.kind === "photo") {
+    form.set("avatarKind", "photo");
+    form.set("photo", identity.avatar.blob);
+  } else if (identity.avatar?.kind === "preset") {
+    form.set("avatarKind", "preset");
+    form.set("avatarPresetId", identity.avatar.id);
+  }
+
+  const response = await request("/api/profile", { method: "POST", body: form });
+  if (response.status === 409) throw new UsernameTakenError();
+  expectNoContent(response);
 }

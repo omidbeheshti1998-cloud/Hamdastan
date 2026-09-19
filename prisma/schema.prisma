@@ -1,0 +1,132 @@
+// اسکیمای دیتابیس hamdastan.
+//
+// هیچ migration ای از اینجا روی دیتابیس اجرا نمی‌شود؛ SQL با `prisma migrate diff`
+// تولید و برای اجرا به صاحب پروژه داده می‌شود (قاعدهٔ AGENTS.md).
+//
+// CHECK constraint ها و ایندکس یکتای `lower(username)` در Prisma قابل بیان نیستند
+// و دستی به همان migration اضافه می‌شوند.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// کاربر. ردیف بلافاصله بعد از تأیید OTP ساخته می‌شود — یعنی پیش از آنکه نامش را
+/// بپرسیم — پس `firstName`/`lastName` تا پایان onboarding خالی‌اند.
+/// `onboardedAt` مرز «ثبت‌نامش تمام شد» است و کاربرِ نیمه‌کاره با آن از همان‌جا ادامه می‌دهد.
+model User {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mobile         String    @unique @db.VarChar(11)
+  firstName      String?   @map("first_name")
+  lastName       String?   @map("last_name")
+  username       String?   @db.VarChar(20)
+  bio            String?   @db.VarChar(200)
+  /// 'preset' | 'photo'
+  avatarKind     String?   @map("avatar_kind")
+  /// فقط وقتی avatarKind = 'preset'؛ شناسهٔ آواتار آماده از lib/profile.ts
+  avatarPresetId String?   @map("avatar_preset_id")
+  onboardedAt    DateTime? @map("onboarded_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  avatar             UserAvatar?
+  sessions           Session[]
+  interestCategories UserInterestCategory[]
+  preferences        UserPreference[]
+
+  @@map("users")
+}
+
+/// کد تأیید. در دیتابیس است و نه در حافظه، چون build این پروژه standalone است و
+/// در کانتینر اجرا می‌شود؛ حافظهٔ in-process با ری‌استارت پاک می‌شود و با بیش از
+/// یک instance اصلاً کار نمی‌کند.
+/// Rate limit از همین جدول درمی‌آید: شمردن ردیف‌های یک شماره در چند دقیقهٔ اخیر.
+model OtpCode {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mobile     String    @db.VarChar(11)
+  /// هش کد، نه خودش.
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// پر شدنش یعنی کد مصرف یا باطل شده (ارسال مجدد کد قبلی را باطل می‌کند).
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  attempts   Int       @default(0) @db.SmallInt
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([mobile, createdAt(sort: Desc)])
+  @@map("otp_codes")
+}
+
+/// نشست. کوکی مقدار خام توکن را دارد، دیتابیس فقط هشش را.
+model Session {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// دستهٔ علاقهٔ انتخاب‌شده. حضور ردیف یعنی دسته انتخاب شده، حتی بدون زیرعلاقه.
+model UserInterestCategory {
+  userId     String   @map("user_id") @db.Uuid
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subs UserInterestSub[]
+
+  @@id([userId, categoryId])
+  @@map("user_interest_categories")
+}
+
+/// زیرعلاقه. کلید خارجی مرکب تضمین می‌کند زیرعلاقه بدون دستهٔ متناظرش ثبت نشود.
+/// Interest Score ذخیره نمی‌شود؛ `min(5 + count(subs), 10)` از همین‌جا حساب می‌شود.
+model UserInterestSub {
+  userId     String @map("user_id") @db.Uuid
+  categoryId String @map("category_id")
+  subId      String @map("sub_id")
+
+  category UserInterestCategory @relation(fields: [userId, categoryId], references: [userId, categoryId], onDelete: Cascade)
+
+  @@id([userId, categoryId, subId])
+  @@map("user_interest_subs")
+}
+
+/// پاسخ ترجیحات. کلید-مقدار است نه ستون‌های ثابت، چون سؤال‌های lib/preferences.ts
+/// قرار است عوض شوند و اضافه‌شدن یک سؤال نباید migration بخواهد.
+model UserPreference {
+  userId    String   @map("user_id") @db.Uuid
+  /// شناسهٔ محور — همان id سؤال در lib/preferences.ts
+  dimension String
+  /// ‎-1 / 0 / +1
+  answer    Int      @db.SmallInt
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dimension])
+  @@map("user_preferences")
+}
+
+/// عکس پروفایل. جدول جداست تا هر SELECT روی کاربر چند صد کیلوبایت بایت را با
+/// خودش نکشد.
+model UserAvatar {
+  userId    String   @id @map("user_id") @db.Uuid
+  mimeType  String   @map("mime_type")
+  byteSize  Int      @map("byte_size")
+  data      Bytes
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_avatars")
+}

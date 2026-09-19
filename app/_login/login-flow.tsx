@@ -8,6 +8,8 @@ import {
   savePreferences,
   saveProfile,
   sendOtp,
+  UsernameTakenError,
+  verifyOtp,
 } from "@/lib/auth/client";
 import { isValidMobile, normalizeMobile } from "@/lib/auth/mobile";
 import type { InterestSelection } from "@/lib/interests";
@@ -47,6 +49,8 @@ export function LoginFlow() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  // مرحلهٔ OTP در هر دو مسیر یکی است؛ فقط کاری که با کد تأییدشده می‌شود فرق دارد.
+  const [otpPurpose, setOtpPurpose] = useState<"login" | "signup">("login");
 
   async function handleMobileSubmit() {
     if (loading || !isValidMobile(mobile)) return;
@@ -57,6 +61,7 @@ export function LoginFlow() {
       if (registered) {
         // کاربر موجود: کد تأیید پیش از نمایش مرحلهٔ بعد ارسال می‌شود.
         await sendOtp(mobile);
+        setOtpPurpose("login");
         setStep("otp");
       } else {
         setStep("profile");
@@ -68,6 +73,11 @@ export function LoginFlow() {
     }
   }
 
+  /**
+   * نام گرفته شد؛ حالا نوبت تأیید شماره است. حساب همین‌جا ساخته نمی‌شود —
+   * ساختنش با `register` و هم‌زمان با تأیید کد انجام می‌شود تا شماره‌ای که
+   * تأیید نشده حسابی در دیتابیس نداشته باشد. نام تا آن لحظه در همین state می‌ماند.
+   */
   async function handleProfileSubmit() {
     const firstName = profile.firstName.trim();
     const lastName = profile.lastName.trim();
@@ -76,8 +86,9 @@ export function LoginFlow() {
     setLoading(true);
     setError(undefined);
     try {
-      await register(mobile, firstName, lastName);
-      setStep("interests");
+      await sendOtp(mobile);
+      setOtpPurpose("signup");
+      setStep("otp");
     } catch {
       setError(NETWORK_ERROR);
     } finally {
@@ -85,12 +96,33 @@ export function LoginFlow() {
     }
   }
 
+  /**
+   * تنها تفاوت دو مسیر: در ورود فقط کد بررسی می‌شود، در ثبت‌نام همان کد حساب را
+   * هم می‌سازد. خطای شبکه عمداً گرفته نمی‌شود تا `OtpStep` پیام خودش را نشان دهد.
+   */
+  async function handleOtpVerify(code: string): Promise<{ ok: boolean }> {
+    if (otpPurpose === "login") {
+      const result = await verifyOtp(mobile, code);
+      if (result.ok) setStep("loggedIn");
+      return result;
+    }
+
+    const result = await register(
+      mobile,
+      code,
+      profile.firstName.trim(),
+      profile.lastName.trim(),
+    );
+    if (result.ok) setStep("interests");
+    return result;
+  }
+
   async function handleInterestsSubmit() {
     if (loading) return;
     setLoading(true);
     setError(undefined);
     try {
-      await saveInterests(mobile, interests);
+      await saveInterests(interests);
       setStep("preferences");
     } catch {
       setError(NETWORK_ERROR);
@@ -104,7 +136,7 @@ export function LoginFlow() {
     setLoading(true);
     setError(undefined);
     try {
-      await savePreferences(mobile, preferences);
+      await savePreferences(preferences);
       goToIdentity();
     } catch {
       setError(NETWORK_ERROR);
@@ -133,10 +165,15 @@ export function LoginFlow() {
     setLoading(true);
     setError(undefined);
     try {
-      await saveProfile(mobile, identity);
+      await saveProfile(identity);
       setStep("onboarded");
-    } catch {
-      setError("ذخیره نشد. دوباره امتحان کن.");
+    } catch (cause) {
+      // بین بررسی حین تایپ و ذخیره، ممکن است کسی همان نام کاربری را گرفته باشد.
+      setError(
+        cause instanceof UsernameTakenError
+          ? "این نام کاربری قبلاً گرفته شده. یکی دیگر انتخاب کن."
+          : "ذخیره نشد. دوباره امتحان کن.",
+      );
     } finally {
       setLoading(false);
     }
@@ -173,7 +210,7 @@ export function LoginFlow() {
         <OtpStep
           mobile={mobile}
           onEditMobile={backToMobile}
-          onVerified={() => setStep("loggedIn")}
+          onVerify={handleOtpVerify}
         />
       ) : step === "interests" ? (
         <InterestsStep

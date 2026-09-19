@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sendOtp, verifyOtp } from "@/lib/auth/client";
+import { sendOtp } from "@/lib/auth/client";
 import { maskMobile } from "@/lib/auth/mobile";
 import { OTP_LENGTH, OtpInput } from "../_components/otp-input";
 import { Spinner, StepHeader } from "../_components/ui";
@@ -23,14 +23,19 @@ function formatCountdown(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+/**
+ * این کامپوننت نمی‌داند ثبت‌نام است یا ورود. تأیید کد از بیرون تزریق می‌شود
+ * (`onVerify`) چون در مسیر ورود فقط کد بررسی می‌شود و در مسیر ثبت‌نام همان کد
+ * حساب را هم می‌سازد. جابه‌جایی به مرحلهٔ بعد وظیفهٔ صدازننده است.
+ */
 export function OtpStep({
   mobile,
   onEditMobile,
-  onVerified,
+  onVerify,
 }: {
   mobile: string;
   onEditMobile: () => void;
-  onVerified: () => void;
+  onVerify: (code: string) => Promise<{ ok: boolean }>;
 }) {
   const [code, setCode] = useState("");
   const [expiresAt, setExpiresAt] = useState(() => Date.now() + OTP_TTL_MS);
@@ -75,9 +80,8 @@ export function OtpStep({
     setVerifying(true);
     setError(null);
     try {
-      const { ok } = await verifyOtp(mobile, value);
-      if (ok) onVerified();
-      else setError("invalid");
+      const { ok } = await onVerify(value);
+      if (!ok) setError("invalid");
     } catch {
       setError("network");
     } finally {
